@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Volánbusz HC Linear</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=VT323&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { background: #1a1a1a; color: white; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        
+        /* BELSŐ KIJELZŐ - PONTOSAN MINT A KÉPEN */
+        #display-volan {
+            width: 800px; height: 450px; background: white; color: black;
+            position: relative; overflow: hidden; display: none; border: 5px solid #222;
+        }
+        .v-header {
+            height: 60px; background: #ffcc00; display: flex; align-items: center;
+            padding: 0 20px; border-bottom: 3px solid #000; gap: 15px;
+        }
+        .v-line { border: 3px solid black; padding: 0 10px; font-weight: 900; font-size: 32px; border-radius: 4px; }
+        .v-dest { font-weight: 700; font-size: 30px; flex-grow: 1; }
+
+        .v-body { padding: 40px 60px; position: relative; height: 300px; }
+        
+        /* A fekete vonal a megállókkal */
+        .v-path {
+            position: absolute; left: 80px; top: 60px; width: 8px; height: 250px;
+            background: #444; border-radius: 4px;
+        }
+        .v-stop-container {
+            display: flex; flex-direction: column; justify-content: space-between;
+            height: 250px; margin-left: 60px; margin-top: 15px;
+        }
+        .v-stop { font-size: 26px; font-weight: 700; color: #888; position: relative; }
+        .v-stop.active { font-size: 42px; color: black; font-weight: 900; }
+        
+        /* Pontok a vonalon */
+        .v-dot {
+            position: absolute; left: -52px; top: 8px; width: 24px; height: 24px;
+            background: white; border: 5px solid #444; border-radius: 50%;
+        }
+        .active .v-dot { background: #ffcc00; border-color: black; width: 32px; height: 32px; left: -57px; top: 5px; }
+
+        .v-footer {
+            position: absolute; bottom: 20px; right: 30px; font-style: italic;
+            font-weight: 900; font-size: 24px; color: #ffcc00; -webkit-text-stroke: 1px black;
+        }
+
+        /* KÜLSŐ LED */
+        #display-ext {
+            width: 1000px; height: 180px; background: black; display: flex;
+            align-items: center; padding: 0 30px; position: relative;
+        }
+        .led-line { color: #ffaa00; font-family: 'VT323'; font-size: 140px; border: 6px solid #ffaa00; padding: 0 15px; margin-right: 30px; }
+        .led-text { color: #ffaa00; font-family: 'VT323'; font-size: 100px; text-transform: uppercase; }
+
+        /* UI */
+        .ui { margin-top: 20px; background: #333; padding: 20px; border-radius: 10px; width: 600px; display: grid; gap: 10px; }
+        input, select { padding: 10px; background: #444; color: white; border: 1px solid #555; }
+        button { padding: 15px; background: #28a745; color: white; font-weight: bold; cursor: pointer; border: none; }
+    </style>
+</head>
+<body>
+
+    <div id="display-ext">
+        <div id="ext-l-res" class="led-line">7651</div>
+        <div id="ext-t-res" class="led-text">Békásmegyer H</div>
+    </div>
+
+    <div id="display-volan">
+        <div class="v-header">
+            <div id="int-l-res" class="v-line">7651</div>
+            <div id="int-d-res" class="v-dest">Békásmegyer H</div>
+        </div>
+        <div class="v-body">
+            <div class="v-path"></div>
+            <div class="v-stop-container">
+                <div class="v-stop"><div class="v-dot"></div><span id="s1">Következő megálló</span></div>
+                <div class="v-stop active"><div class="v-dot"></div><span id="s2">Jelenlegi megálló</span></div>
+                <div class="v-stop"><div class="v-dot"></div><span id="s3">Előző megálló</span></div>
+            </div>
+        </div>
+        <div class="v-footer">VOLÁNBUSZ</div>
+    </div>
+
+    <div class="ui">
+        <select id="mode">
+            <option value="ext">Külső LED</option>
+            <option value="int">Belső (HC Linear)</option>
+        </select>
+        <input type="text" id="in-line" placeholder="Járat" value="7651">
+        <input type="text" id="in-dest" placeholder="Végállomás" value="Békásmegyer H">
+        
+        <div id="stop-inputs" style="display:none">
+            <input type="text" id="in-s1" placeholder="Következő megálló" value="Következő megálló">
+            <input type="text" id="in-s2" placeholder="Jelenlegi megálló (Nagy)" value="Jelenlegi megálló">
+            <input type="text" id="in-s3" placeholder="Előző megálló" value="Előző megálló">
+        </div>
+        
+        <button onclick="save()">Mentés PNG</button>
+    </div>
+
+    <script>
+        const mode = document.getElementById('mode');
+        mode.onchange = () => {
+            document.getElementById('display-ext').style.display = mode.value === 'ext' ? 'flex' : 'none';
+            document.getElementById('display-volan').style.display = mode.value === 'int' ? 'block' : 'none';
+            document.getElementById('stop-inputs').style.display = mode.value === 'int' ? 'grid' : 'none';
+        };
+
+        document.getElementById('in-line').oninput = (e) => {
+            document.getElementById('ext-l-res').innerText = e.target.value;
+            document.getElementById('int-l-res').innerText = e.target.value;
+        };
+        document.getElementById('in-dest').oninput = (e) => {
+            document.getElementById('ext-t-res').innerText = e.target.value;
+            document.getElementById('int-d-res').innerText = e.target.value;
+        };
+        document.getElementById('in-s1').oninput = (e) => document.getElementById('s1').innerText = e.target.value;
+        document.getElementById('in-s2').oninput = (e) => document.getElementById('s2').innerText = e.target.value;
+        document.getElementById('in-s3').oninput = (e) => document.getElementById('s3').innerText = e.target.value;
+
+        function save() {
+            const target = mode.value === 'ext' ? document.getElementById('display-ext') : document.getElementById('display-volan');
+            html2canvas(target).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'volan.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        }
+    </script>
+</body>
+</html>
